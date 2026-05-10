@@ -1,0 +1,69 @@
+name: Vicleo Build CI/CD
+
+
+on: 
+ push: 
+  branches: ["main", "develop", "release"]
+ pull_request:
+  branches: ["main"]
+  
+ workflow_dispatch:
+  inputs: 
+   environment:
+    description: 'Target Deployment | Development Environment'
+    type: environment 
+    required: true
+    default: 'dev'
+
+jobs:
+ build-and-analyze:
+  name: Build, Housekeeping & Sonar
+  runs-on: ubuntu-latest
+  
+  steps:
+   - name: Checkout Code 
+     uses: actions/checkout@v4
+     with:
+      fetch-depth: 0
+	  
+   - name: Set up JDK 17
+     uses: actions/setup-java@v4
+     with:
+      java-version: '17'
+      distribution: 'temurin'
+      cache: 'maven'
+	  
+   - name: Housekeeping (Code Style & Linting)
+     run: echo "Running your formatting checks here!..."
+	 
+   - name: Build & Test
+     run: mvn clean verify 
+	 
+   - name: SonarQube / SonarCloud Analysis
+     env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+     run: mvn org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=
+	 
+ deploy:
+ name: Deploy
+ needs: build-and-analyze
+ runs-on: ubuntu-latest
+	     
+  environment: ${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'prod' || 'dev') }}
+   if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+	     
+ steps:
+  - name: Checkout Code
+    uses: actions/checkout@v4
+
+  - name: Download Build Artifacts
+    run: echo "Downloading artifacts..."
+
+  - name: Execute Deployment
+	run: |
+	  echo "Deploying to environment: ${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'prod' || 'dev') }}"
+	           
+  
+	  
